@@ -3,69 +3,643 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>MKV In-Video Subtitle Editor</title>
-  <link rel="stylesheet" href="style.css" />
+  <title>MKV Subtitle Editor (ASS/SRT Supported)</title>
+  <style>
+    :root {
+      --bg: #121214;
+      --card: #1c1c21;
+      --border: #2e2e38;
+      --text: #f4f4f7;
+      --text-muted: #9595a8;
+      --primary: #3b82f6;
+      --accent: #8b5cf6;
+      --success: #10b981;
+      --danger: #ef4444;
+      --warning: #f59e0b;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      padding: 16px;
+    }
+
+    .container { max-width: 1000px; margin: 0 auto; display: flex; flex-direction: column; gap: 14px; }
+    header h1 { font-size: 22px; font-weight: 700; }
+    .subtitle { color: var(--text-muted); font-size: 13px; margin-top: 3px; }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px;
+    }
+
+    /* File Input Bar */
+    .io-panel {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .btn-group { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+    .btn {
+      padding: 7px 12px;
+      font-size: 13px;
+      font-weight: 600;
+      border-radius: 6px;
+      border: none;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: opacity 0.2s;
+    }
+    .btn:hover { opacity: 0.88; }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .btn-primary { background: var(--primary); color: #fff; }
+    .btn-secondary { background: #374151; color: #fff; }
+    .btn-success { background: var(--success); color: #fff; }
+    .btn-accent { background: var(--accent); color: #fff; }
+    .btn-danger { background: var(--danger); color: #fff; padding: 3px 6px; font-size: 11px; }
+
+    .select-input {
+      background: #121214;
+      color: #fff;
+      border: 1px solid var(--border);
+      padding: 6px 10px;
+      border-radius: 6px;
+      font-size: 13px;
+    }
+
+    .status-badge {
+      font-family: monospace;
+      font-size: 12px;
+      color: #38bdf8;
+      background: #0c4a6e2e;
+      padding: 4px 8px;
+      border-radius: 4px;
+      border: 1px solid #0369a144;
+    }
+
+    /* Video Player & Overlay */
+    .video-box {
+      position: relative;
+      background: #000;
+      border-radius: 8px;
+      overflow: hidden;
+      display: flex;
+      justify-content: center;
+    }
+
+    video { width: 100%; max-height: 480px; display: block; }
+
+    .sub-overlay {
+      position: absolute;
+      bottom: 50px;
+      left: 50%;
+      transform: translateX(-50%);
+      max-width: 85%;
+      text-align: center;
+      color: #ffffff;
+      font-size: 22px;
+      font-weight: 600;
+      text-shadow: 2px 2px 4px #000, -1px -1px 0 #000, 1px -1px 0 #000;
+      background: rgba(0, 0, 0, 0.45);
+      padding: 4px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      display: none;
+      white-space: pre-wrap;
+    }
+    .sub-overlay:hover {
+      outline: 1px dashed var(--warning);
+      background: rgba(0, 0, 0, 0.7);
+    }
+    .sub-overlay[contenteditable="true"] {
+      outline: 2px solid var(--warning);
+      background: rgba(0, 0, 0, 0.85);
+      cursor: text;
+    }
+
+    /* Track Selector Banner */
+    .track-banner {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: #272732;
+      padding: 10px 14px;
+      border-radius: 6px;
+      font-size: 13px;
+    }
+
+    /* Export Controls */
+    .export-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    /* Subtitle Table */
+    .table-box { max-height: 280px; overflow-y: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th, td { padding: 6px 8px; border-bottom: 1px solid var(--border); text-align: left; }
+    th { background: #161619; color: var(--text-muted); position: sticky; top: 0; }
+    input.tbl-edit {
+      width: 100%;
+      background: #121214;
+      border: 1px solid #33333f;
+      color: #fff;
+      padding: 4px;
+      border-radius: 4px;
+      font-size: 13px;
+    }
+  </style>
 </head>
 <body>
   <div class="container">
     <header>
-      <h1>MKV Subtitle Editor</h1>
-      <p class="subtitle">Edit subtitle langsung dengan mengeklik teks di atas video</p>
+      <h1>MKV Subtitle Studio (Client-Side)</h1>
+      <p class="subtitle">Bisa baca subtitle internal (und, ind, dll), multi-track, import eksternal, & edit langsung di layar</p>
     </header>
 
-    <!-- Upload & Status Section -->
-    <div class="card upload-section">
-      <div class="input-group">
-        <label for="mkvInput" class="btn btn-primary">Pilih Video MKV</label>
-        <input type="file" id="mkvInput" accept=".mkv,.mp4,.webm" hidden />
-        <span id="fileName">Belum ada file dipilih</span>
+    <!-- Upload & Track Selection -->
+    <div class="card io-panel">
+      <div class="btn-group">
+        <label for="mkvInput" class="btn btn-primary">1. Buka File MKV</label>
+        <input type="file" id="mkvInput" accept=".mkv,.webm,.mp4" hidden />
+
+        <label for="subFileInput" class="btn btn-secondary">Import Subtitle (.ass/.srt)</label>
+        <input type="file" id="subFileInput" accept=".ass,.srt,.vtt" hidden />
       </div>
-      <div id="status" class="status-msg">FFmpeg Engine Siap</div>
+      <div id="statusBadge" class="status-badge">Menunggu file video...</div>
     </div>
 
-    <!-- Main Workspace -->
+    <!-- Multi Track Selector (Muncul jika ada track terdeteksi) -->
+    <div class="card track-banner" id="trackBanner" style="display: none;">
+      <span><strong>Track Subtitle Terdeteksi:</strong></span>
+      <select id="subTrackSelect" class="select-input"></select>
+      <button id="loadSelectedTrackBtn" class="btn btn-primary">Gunakan Track Ini</button>
+    </div>
+
+    <!-- Video Workspace -->
     <div class="workspace" id="workspace" style="display: none;">
-      <!-- Video Player with Overlay -->
-      <div class="player-container">
-        <div class="video-wrapper" id="videoWrapper">
-          <video id="videoPlayer" controls></video>
-          <!-- Overlay Subtitle Interactive -->
-          <div id="subtitleOverlay" class="subtitle-overlay" title="Klik untuk edit teks"></div>
-        </div>
+      <div class="video-box">
+        <video id="videoPlayer" controls></video>
+        <!-- Overlay Editable -->
+        <div id="subOverlay" class="sub-overlay" title="Klik untuk edit teks secara langsung"></div>
       </div>
 
-      <!-- Action & Export Controls -->
-      <div class="card controls-panel">
-        <div class="left-controls">
-          <button id="addCueBtn" class="btn btn-secondary">+ Tambah Subtitle Baru</button>
+      <!-- Action Panel & Export Format -->
+      <div class="card export-bar">
+        <div class="btn-group">
+          <button id="addCueBtn" class="btn btn-secondary">+ Baris Subtitle Baru</button>
         </div>
-        <div class="right-controls">
-          <button id="exportSrtBtn" class="btn btn-success">Download .SRT</button>
+        <div class="btn-group">
+          <label style="font-size: 13px;">Format Ekspor:</label>
+          <select id="exportFormat" class="select-input">
+            <option value="ass">ASS (.ass)</option>
+            <option value="srt">SRT (.srt)</option>
+          </select>
+          <button id="exportSubBtn" class="btn btn-success">Download Subtitle Saja</button>
           <button id="exportMkvBtn" class="btn btn-accent">Muxing ke MKV Baru</button>
         </div>
       </div>
 
-      <!-- Subtitle List Table -->
-      <div class="card table-container">
-        <h3>Daftar Subtitle</h3>
-        <table id="subTable">
+      <!-- Table View -->
+      <div class="card table-box">
+        <table>
           <thead>
             <tr>
-              <th width="15%">Mulai</th>
-              <th width="15%">Selesai</th>
-              <th width="55%">Teks Subtitle</th>
-              <th width="15%">Aksi</th>
+              <th width="14%">Mulai (dtk)</th>
+              <th width="14%">Selesai (dtk)</th>
+              <th width="62%">Teks Subtitle</th>
+              <th width="10%">Hapus</th>
             </tr>
           </thead>
-          <tbody id="subTableBody">
-            <!-- Diisi secara dinamis oleh JavaScript -->
-          </tbody>
+          <tbody id="subTableBody"></tbody>
         </table>
       </div>
     </div>
   </div>
 
-  <!-- Load Module app.js -->
-  <script type="module" src="app.js"></script>
+  <!-- SCRIPT ENGINE -->
+  <script type="module">
+    import { FFmpeg } from 'https://unpkg.com/@ffmpeg/ffmpeg@0.12.10/dist/esm/index.js';
+    import { toBlobURL, fetchFile } from 'https://unpkg.com/@ffmpeg/util@0.12.1/dist/esm/index.js';
+
+    // State Internal
+    let ffmpeg = null;
+    let subtitles = [];
+    let activeCue = null;
+    let currentMkvFile = null;
+    let detectedSubtitleStreams = []; // [{index, lang, codec}]
+
+    // Elemen DOM
+    const mkvInput = document.getElementById('mkvInput');
+    const subFileInput = document.getElementById('subFileInput');
+    const statusBadge = document.getElementById('statusBadge');
+    const trackBanner = document.getElementById('trackBanner');
+    const subTrackSelect = document.getElementById('subTrackSelect');
+    const loadSelectedTrackBtn = document.getElementById('loadSelectedTrackBtn');
+    const workspace = document.getElementById('workspace');
+    const video = document.getElementById('videoPlayer');
+    const overlay = document.getElementById('subOverlay');
+    const subTableBody = document.getElementById('subTableBody');
+    const addCueBtn = document.getElementById('addCueBtn');
+    const exportSubBtn = document.getElementById('exportSubBtn');
+    const exportMkvBtn = document.getElementById('exportMkvBtn');
+    const exportFormat = document.getElementById('exportFormat');
+
+    // Inisialisasi WebAssembly FFmpeg
+    async function getFFmpeg() {
+      if (ffmpeg) return ffmpeg;
+      statusBadge.innerText = "Memuat engine FFmpeg...";
+      ffmpeg = new FFmpeg();
+      const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm';
+      await ffmpeg.load({
+        coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
+        wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm')
+      });
+      statusBadge.innerText = "Engine FFmpeg siap.";
+      return ffmpeg;
+    }
+
+    // 1. INPUT FILE MKV & PROBE STREAM
+    mkvInput.addEventListener('change', async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      currentMkvFile = file;
+      video.src = URL.createObjectURL(file);
+      workspace.style.display = 'block';
+      trackBanner.style.display = 'none';
+      subtitles = [];
+      renderTable();
+
+      statusBadge.innerText = "Membaca struktur stream MKV...";
+      const ff = await getFFmpeg();
+      await ff.writeFile('input.mkv', await fetchFile(file));
+
+      // Menangkap stderr FFmpeg untuk membaca daftar stream
+      const logLines = [];
+      const logHandler = ({ message }) => logLines.push(message);
+      ff.on('log', logHandler);
+
+      try {
+        // Jalankan perintah membaca info stream
+        await ff.exec(['-i', 'input.mkv']);
+      } catch (err) {
+        // FFmpeg selalu throw exit code jika tanpa output file, abaikan
+      } finally {
+        ff.off('log', logHandler);
+      }
+
+      // Parsing Stream Subtitle dari log
+      // Contoh log: "Stream #0:2(und): Subtitle: ass (default)" atau "Stream #0:3: Subtitle: subrip"
+      detectedSubtitleStreams = [];
+      const regex = /Stream #0:(\d+)(?:\((.*?)\))?.*?: Subtitle: (\w+)/gi;
+      const fullLog = logLines.join('\n');
+      let match;
+
+      while ((match = regex.exec(fullLog)) !== null) {
+        detectedSubtitleStreams.push({
+          streamId: match[1],
+          lang: match[2] || 'und', // jika tidak ada tag bahasa, set 'und' (undetermined)
+          codec: match[3].toLowerCase()
+        });
+      }
+
+      if (detectedSubtitleStreams.length > 0) {
+        // Tampilkan opsi pemilih track
+        subTrackSelect.innerHTML = '';
+        detectedSubtitleStreams.forEach((st, idx) => {
+          const opt = document.createElement('option');
+          opt.value = idx;
+          opt.innerText = `Track #${st.streamId} - Bahasa: [${st.lang}] - Format: (${st.codec})`;
+          subTrackSelect.appendChild(opt);
+        });
+        trackBanner.style.display = 'flex';
+        statusBadge.innerText = `Ditemukan ${detectedSubtitleStreams.length} track subtitle internal!`;
+        // Otomatis ekstrak track pertama
+        extractTrack(0);
+      } else {
+        statusBadge.innerText = "Tidak ditemukan subtitle internal di MKV. Anda bisa meng-import manual.";
+      }
+    });
+
+    // 2. EKSTRAKSI TRACK TERPILIH
+    async function extractTrack(index) {
+      const track = detectedSubtitleStreams[index];
+      if (!track) return;
+
+      statusBadge.innerText = `Mengekstrak Track #${track.streamId} [${track.lang}]...`;
+      const ff = await getFFmpeg();
+      const isAss = track.codec.includes('ass') || track.codec.includes('ssa');
+      const outFile = isAss ? 'track.ass' : 'track.srt';
+
+      try {
+        await ff.exec(['-i', 'input.mkv', '-map', `0:${track.streamId}`, outFile]);
+        const data = await ff.readFile(outFile);
+        const text = new TextDecoder().decode(data);
+
+        if (isAss) {
+          subtitles = parseASS(text);
+          exportFormat.value = 'ass';
+        } else {
+          subtitles = parseSRT(text);
+          exportFormat.value = 'srt';
+        }
+
+        renderTable();
+        statusBadge.innerText = `Berhasil memuat ${subtitles.length} baris subtitle!`;
+      } catch (err) {
+        console.error(err);
+        statusBadge.innerText = "Gagal mengekstrak track ini. Format mungkin terkompresi khusus.";
+      }
+    }
+
+    loadSelectedTrackBtn.addEventListener('click', () => {
+      extractTrack(Number(subTrackSelect.value));
+    });
+
+    // 3. IMPORT SUBTITLE EKSTERNAL (.ASS / .SRT)
+    subFileInput.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const content = event.target.result;
+        if (file.name.endsWith('.ass') || file.name.endsWith('.ssa') || content.includes('[Events]')) {
+          subtitles = parseASS(content);
+          exportFormat.value = 'ass';
+        } else {
+          subtitles = parseSRT(content);
+          exportFormat.value = 'srt';
+        }
+        renderTable();
+        statusBadge.innerText = `Sub eksternal dimuat: ${subtitles.length} baris.`;
+      };
+      reader.readAsText(file);
+    });
+
+    // 4. SINKRONISASI VIDEO PLAYER DENGAN OVERLAY
+    video.addEventListener('timeupdate', () => {
+      if (overlay.getAttribute('contenteditable') === 'true') return;
+
+      const t = video.currentTime;
+      activeCue = subtitles.find(s => t >= s.start && t <= s.end);
+
+      if (activeCue) {
+        // Tampilkan teks bersih tanpa tag style ASS {\...} untuk kemudahan membaca
+        overlay.innerText = cleanAssTags(activeCue.text);
+        overlay.style.display = 'block';
+      } else {
+        overlay.style.display = 'none';
+      }
+    });
+
+    // 5. EDIT LANGSUNG DENGAN MENG-KLIK DI VIDEO
+    overlay.addEventListener('click', () => {
+      if (!activeCue) return;
+      video.pause();
+      overlay.setAttribute('contenteditable', 'true');
+      overlay.focus();
+    });
+
+    overlay.addEventListener('blur', () => {
+      overlay.setAttribute('contenteditable', 'false');
+      if (activeCue) {
+        activeCue.text = overlay.innerText;
+        renderTable();
+      }
+    });
+
+    overlay.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        overlay.blur();
+      }
+    });
+
+    // 6. RENDER DAFTAR TABEL
+    function renderTable() {
+      subTableBody.innerHTML = '';
+      subtitles.forEach((s, idx) => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td><input type="number" step="0.01" class="tbl-edit" value="${s.start.toFixed(2)}" data-idx="${idx}" data-k="start"></td>
+          <td><input type="number" step="0.01" class="tbl-edit" value="${s.end.toFixed(2)}" data-idx="${idx}" data-k="end"></td>
+          <td><input type="text" class="tbl-edit" value="${escapeHtml(s.text)}" data-idx="${idx}" data-k="text"></td>
+          <td><button class="btn btn-danger" data-idx="${idx}">✕</button></td>
+        `;
+        subTableBody.appendChild(tr);
+      });
+
+      subTableBody.querySelectorAll('input').forEach(inp => {
+        inp.addEventListener('change', (e) => {
+          const idx = e.target.dataset.idx;
+          const k = e.target.dataset.k;
+          subtitles[idx][k] = k === 'text' ? e.target.value : parseFloat(e.target.value);
+          subtitles.sort((a, b) => a.start - b.start);
+        });
+      });
+
+      subTableBody.querySelectorAll('button').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          subtitles.splice(e.target.dataset.idx, 1);
+          renderTable();
+        });
+      });
+    }
+
+    // 7. TAMBAH BARIS MANUAL
+    addCueBtn.addEventListener('click', () => {
+      const cur = video.currentTime || 0;
+      subtitles.push({
+        id: Date.now(),
+        start: Number(cur.toFixed(2)),
+        end: Number((cur + 2.5).toFixed(2)),
+        text: "Ketik teks subtitle di sini"
+      });
+      subtitles.sort((a, b) => a.start - b.start);
+      renderTable();
+    });
+
+    // 8. OPSI EKSPOR 1: UNDUH FILE SUBTITLE (ASS ATAU SRT)
+    exportSubBtn.addEventListener('click', () => {
+      if (subtitles.length === 0) return alert("Belum ada data subtitle!");
+      const format = exportFormat.value;
+      const content = format === 'ass' ? stringifyASS(subtitles) : stringifySRT(subtitles);
+      const mime = format === 'ass' ? 'text/x-ssa' : 'text/plain';
+      downloadBlob(new Blob([content], { type: `${mime};charset=utf-8` }), `subtitles.${format}`);
+    });
+
+    // 9. OPSI EKSPOR 2: IN-BROWSER REMUXING KE MKV
+    exportMkvBtn.addEventListener('click', async () => {
+      if (!currentMkvFile) return alert("Pilih video MKV terlebih dahulu!");
+      try {
+        exportMkvBtn.disabled = true;
+        statusBadge.innerText = "Sedang muxing ke MKV baru (Stream copy)...";
+
+        const ff = await getFFmpeg();
+        const format = exportFormat.value;
+        const subFile = `new_subs.${format}`;
+        const subContent = format === 'ass' ? stringifyASS(subtitles) : stringifySRT(subtitles);
+
+        await ff.writeFile('input.mkv', await fetchFile(currentMkvFile));
+        await ff.writeFile(subFile, subContent);
+
+        // Muxing tanpa re-encode video/audio
+        await ff.exec([
+          '-i', 'input.mkv',
+          '-i', subFile,
+          '-map', '0:v',
+          '-map', '0:a?',
+          '-map', '1:s',
+          '-c', 'copy',
+          '-metadata:s:s:0', 'language=und',
+          'output.mkv'
+        ]);
+
+        const outData = await ff.readFile('output.mkv');
+        downloadBlob(new Blob([outData.buffer], { type: 'video/x-matroska' }), `edited_${currentMkvFile.name}`);
+        statusBadge.innerText = "Muxing selesai! Unduhan dimulai.";
+      } catch (err) {
+        console.error(err);
+        alert("Gagal melakukan muxing. File mungkin melampaui kapasitas RAM browser.");
+        statusBadge.innerText = "Muxing gagal.";
+      } finally {
+        exportMkvBtn.disabled = false;
+      }
+    });
+
+    // --- HELPER PARSER & FORMATTER ---
+
+    function cleanAssTags(t) {
+      return t.replace(/\{.*?\}/g, '').replace(/\\N/g, '\n');
+    }
+
+    function escapeHtml(t) {
+      return t.replace(/"/g, '&quot;');
+    }
+
+    function downloadBlob(blob, name) {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = name;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    // SRT Parsing & Formatting
+    function parseSRT(data) {
+      const regex = /(\d+)\r?\n(\d{2}:\d{2}:\d{2},\d{3}) --> (\d{2}:\d{2}:\d{2},\d{3})\r?\n([\s\S]*?)(?=\r?\n\r?\n|\r?\n*$)/g;
+      const res = [];
+      let m;
+      while ((m = regex.exec(data)) !== null) {
+        res.push({
+          id: Number(m[1]),
+          start: srtToSec(m[2]),
+          end: srtToSec(m[3]),
+          text: m[4].trim()
+        });
+      }
+      return res;
+    }
+
+    function srtToSec(t) {
+      const [h, m, sms] = t.split(':');
+      const [s, ms] = sms.split(',');
+      return (+h) * 3600 + (+m) * 60 + (+s) + (+ms) / 1000;
+    }
+
+    function stringifySRT(list) {
+      return list.map((c, i) => {
+        const pad = (n, z = 2) => ('00' + n).slice(-z);
+        const formatT = (sec) => {
+          const h = Math.floor(sec / 3600);
+          const m = Math.floor((sec % 3600) / 60);
+          const s = Math.floor(sec % 60);
+          const ms = Math.floor((sec % 1) * 1000);
+          return `${pad(h)}:${pad(m)}:${pad(s)},${pad(ms, 3)}`;
+        };
+        return `${i + 1}\n${formatT(c.start)} --> ${formatT(c.end)}\n${c.text.replace(/\\N/g, '\n')}\n\n`;
+      }).join('');
+    }
+
+    // ASS Parsing & Formatting
+    function parseASS(data) {
+      const lines = data.split(/\r?\n/);
+      const res = [];
+      let inEvents = false;
+      let id = 1;
+
+      for (let line of lines) {
+        line = line.trim();
+        if (line === '[Events]') { inEvents = true; continue; }
+        if (inEvents && line.startsWith('Dialogue:')) {
+          // Format standar: Dialogue: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+          const parts = line.substring(9).split(',');
+          if (parts.length >= 10) {
+            const start = assToSec(parts[1].trim());
+            const end = assToSec(parts[2].trim());
+            const text = parts.slice(9).join(','); // Gabungkan sisa koma ke dalam teks
+            res.push({ id: id++, start, end, text });
+          }
+        }
+      }
+      return res;
+    }
+
+    function assToSec(t) {
+      const [h, m, scs] = t.split(':');
+      const [s, cs] = scs.split('.');
+      return (+h) * 3600 + (+m) * 60 + (+s) + (+cs) / 100;
+    }
+
+    function stringifyASS(list) {
+      const pad = (n, z = 2) => ('00' + n).slice(-z);
+      const formatAssTime = (sec) => {
+        const h = Math.floor(sec / 3600);
+        const m = Math.floor((sec % 3600) / 60);
+        const s = Math.floor(sec % 60);
+        const cs = Math.floor((sec % 1) * 100);
+        return `${h}:${pad(m)}:${pad(s)}.${pad(cs)}`;
+      };
+
+      let header = `[Script Info]
+Title: Exported Subtitle
+ScriptType: v4.00+
+WrapStyle: 0
+ScaledBorderAndShadow: yes
+PlayResX: 1920
+PlayResY: 1080
+
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+Style: Default,Arial,48,&H00FFFFFF,&H000000FF,&H00000000,&H00000000,0,0,0,0,100,100,0,0,1,2,2,2,10,10,20,1
+
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+`;
+
+      const events = list.map(c => {
+        const clean = c.text.replace(/\r?\n/g, '\\N');
+        return `Dialogue: 0,${formatAssTime(c.start)},${formatAssTime(c.end)},Default,,0,0,0,,${clean}`;
+      }).join('\n');
+
+      return header + events;
+    }
+  </script>
 </body>
 </html>
