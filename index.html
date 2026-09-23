@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MKV In-Video Subtitle Editor</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>MKV Subtitle Editor</h1>
+      <p class="subtitle">Edit subtitle langsung dengan mengeklik teks di atas video</p>
+    </header>
+
+    <!-- Upload & Status Section -->
+    <div class="card upload-section">
+      <div class="input-group">
+        <label for="mkvInput" class="btn btn-primary">Pilih Video MKV</label>
+        <input type="file" id="mkvInput" accept=".mkv,.mp4,.webm" hidden />
+        <span id="fileName">Belum ada file dipilih</span>
+      </div>
+      <div id="status" class="status-msg">FFmpeg Engine Siap</div>
+    </div>
+
+    <!-- Main Workspace -->
+    <div class="workspace" id="workspace" style="display: none;">
+      <!-- Video Player with Overlay -->
+      <div class="player-container">
+        <div class="video-wrapper" id="videoWrapper">
+          <video id="videoPlayer" controls></video>
+          <!-- Overlay Subtitle Interactive -->
+          <div id="subtitleOverlay" class="subtitle-overlay" title="Klik untuk edit teks"></div>
+        </div>
+      </div>
+
+      <!-- Action & Export Controls -->
+      <div class="card controls-panel">
+        <div class="left-controls">
+          <button id="addCueBtn" class="btn btn-secondary">+ Tambah Subtitle Baru</button>
+        </div>
+        <div class="right-controls">
+          <button id="exportSrtBtn" class="btn btn-success">Download .SRT</button>
+          <button id="exportMkvBtn" class="btn btn-accent">Muxing ke MKV Baru</button>
+        </div>
+      </div>
+
+      <!-- Subtitle List Table -->
+      <div class="card table-container">
+        <h3>Daftar Subtitle</h3>
+        <table id="subTable">
+          <thead>
+            <tr>
+              <th width="15%">Mulai</th>
+              <th width="15%">Selesai</th>
+              <th width="55%">Teks Subtitle</th>
+              <th width="15%">Aksi</th>
+            </tr>
+          </thead>
+          <tbody id="subTableBody">
+            <!-- Diisi secara dinamis oleh JavaScript -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Load Module app.js -->
+  <script type="module" src="app.js"></script>
+</body>
+</html>
